@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>⏰ Timer do Guzon</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;700;900&display=swap');
+
+    :root {
+      --red: #ff3b3b;
+      --yellow: #ffd600;
+      --green: #00e676;
+      --blue: #2979ff;
+      --purple: #9c27b0;
+      --bg: #0d0d0d;
+      --card: #1a1a1a;
+      --border: #2e2e2e;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: #fff;
+      font-family: 'Nunito', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Scanlines overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.15) 2px,
+        rgba(0,0,0,0.15) 4px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* Floating emojis background */
+    .floaties {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .floatie {
+      position: absolute;
+      font-size: 2rem;
+      opacity: 0.07;
+      animation: floatUp linear infinite;
+    }
+
+    @keyframes floatUp {
+      0%   { transform: translateY(110vh) rotate(0deg); opacity: 0; }
+      10%  { opacity: 0.07; }
+      90%  { opacity: 0.07; }
+      100% { transform: translateY(-10vh) rotate(360deg); opacity: 0; }
+    }
+
+    /* ── MAIN CONTAINER ── */
+    .container {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.6rem;
+      padding: 2rem 1.5rem;
+      max-width: 600px;
+      width: 100%;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      text-align: center;
+    }
+    .header h1 {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(1rem, 4vw, 1.6rem);
+      color: var(--yellow);
+      text-shadow: 0 0 20px rgba(255,214,0,0.6), 3px 3px 0 #7a5900;
+      letter-spacing: 2px;
+      line-height: 1.6;
+    }
+    .header .subtitle {
+      margin-top: 0.8rem;
+      font-size: 0.9rem;
+      color: #aaa;
+      font-weight: 700;
+    }
+    .header .subtitle span {
+      color: var(--red);
+    }
+
+    /* ── RULE BANNER ── */
+    .rule-banner {
+      background: linear-gradient(135deg, #1a0000, #2e0000);
+      border: 2px solid var(--red);
+      border-radius: 12px;
+      padding: 0.8rem 1.4rem;
+      text-align: center;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      box-shadow: 0 0 20px rgba(255,59,59,0.2);
+      width: 100%;
+    }
+    .rule-banner .decree {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.55rem;
+      color: var(--red);
+      letter-spacing: 2px;
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+    .rule-banner p {
+      color: #ffb3b3;
+      font-weight: 700;
+    }
+    .rule-banner .signers {
+      margin-top: 0.4rem;
+      font-size: 0.75rem;
+      color: #888;
+    }
+    .rule-banner .signers strong {
+      color: #ff8a8a;
+    }
+
+    /* ── TIMER DISPLAY ── */
+    .timer-wrap {
+      position: relative;
+      width: 100%;
+    }
+
+    .timer-card {
+      background: var(--card);
+      border: 3px solid var(--border);
+      border-radius: 20px;
+      padding: 2rem 1rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.3s;
+    }
+    .timer-card.running {
+      border-color: var(--green);
+      box-shadow: 0 0 30px rgba(0,230,118,0.15);
+    }
+    .timer-card.paused {
+      border-color: var(--yellow);
+      box-shadow: 0 0 30px rgba(255,214,0,0.15);
+    }
+    .timer-card.danger {
+      border-color: var(--red);
+      box-shadow: 0 0 30px rgba(255,59,59,0.3);
+      animation: dangerPulse 1s ease-in-out infinite;
+    }
+    .timer-card.done {
+      border-color: var(--red);
+      box-shadow: 0 0 50px rgba(255,59,59,0.5);
+    }
+
+    @keyframes dangerPulse {
+      0%, 100% { box-shadow: 0 0 30px rgba(255,59,59,0.3); }
+      50%       { box-shadow: 0 0 60px rgba(255,59,59,0.7); }
+    }
+
+    /* Progress bar */
+    .progress-bar-wrap {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 5px;
+      background: #222;
+    }
+    .progress-bar {
+      height: 100%;
+      background: var(--green);
+      transition: width 1s linear, background 1s;
+      width: 100%;
+    }
+
+    /* Status label */
+    .status-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.5rem;
+      letter-spacing: 3px;
+      margin-bottom: 1rem;
+      height: 1rem;
+      color: #444;
+      transition: color 0.3s;
+    }
+    .timer-card.running  .status-label { color: var(--green); }
+    .timer-card.paused   .status-label { color: var(--yellow); }
+    .timer-card.danger   .status-label { color: var(--red); }
+    .timer-card.done     .status-label { color: var(--red); }
+
+    /* The big clock */
+    .time-display {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(3rem, 14vw, 6rem);
+      letter-spacing: 4px;
+      color: #fff;
+      transition: color 0.5s;
+      line-height: 1;
+    }
+    .timer-card.running  .time-display { color: #fff; }
+    .timer-card.danger   .time-display { color: var(--red); animation: blink 0.5s step-end infinite; }
+    .timer-card.done     .time-display { color: var(--red); }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.2; }
+    }
+
+    /* Phase message */
+    .phase-msg {
+      margin-top: 1rem;
+      font-size: 0.85rem;
+      color: #888;
+      font-weight: 700;
+      min-height: 1.4rem;
+      transition: color 0.5s;
+    }
+    .timer-card.running  .phase-msg { color: #aaa; }
+    .timer-card.danger   .phase-msg { color: var(--red); font-size: 0.9rem; }
+
+    /* ── BUTTONS ── */
+    .btn-group {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 1px;
+      padding: 1rem 1.8rem;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s;
+      text-transform: uppercase;
+      outline: none;
+    }
+    .btn:active { transform: scale(0.95); }
+
+    .btn-start {
+      background: var(--green);
+      color: #000;
+      box-shadow: 0 4px 0 #005c2e, 0 0 20px rgba(0,230,118,0.3);
+    }
+    .btn-start:hover { box-shadow: 0 6px 0 #005c2e, 0 0 30px rgba(0,230,118,0.5); transform: translateY(-2px); }
+    .btn-start:active { box-shadow: 0 2px 0 #005c2e; transform: translateY(2px); }
+
+    .btn-pause {
+      background: var(--yellow);
+      color: #000;
+      box-shadow: 0 4px 0 #7a5900, 0 0 20px rgba(255,214,0,0.3);
+    }
+    .btn-pause:hover { box-shadow: 0 6px 0 #7a5900, 0 0 30px rgba(255,214,0,0.5); transform: translateY(-2px); }
+    .btn-pause:active { box-shadow: 0 2px 0 #7a5900; transform: translateY(2px); }
+
+    .btn-reset {
+      background: #333;
+      color: #aaa;
+      box-shadow: 0 4px 0 #111;
+    }
+    .btn-reset:hover { background: #444; color: #fff; transform: translateY(-2px); }
+    .btn-reset:active { box-shadow: 0 2px 0 #111; transform: translateY(2px); }
+
+    .btn-stop-alarm {
+      background: var(--red);
+      color: #fff;
+      box-shadow: 0 4px 0 #7a0000, 0 0 20px rgba(255,59,59,0.5);
+      animation: shake 0.4s ease-in-out infinite;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: rotate(-2deg); }
+      50%       { transform: rotate(2deg); }
+    }
+
+    /* ── GAME OVER SCREEN ── */
+    .game-over {
+      display: none;
+      text-align: center;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+    .game-over.visible { display: flex; }
+
+    .game-over-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(1.2rem, 5vw, 2rem);
+      color: var(--red);
+      text-shadow: 0 0 30px rgba(255,59,59,0.8), 4px 4px 0 #7a0000;
+      animation: glitch 2s linear infinite;
+    }
+
+    @keyframes glitch {
+      0%, 95%, 100% { text-shadow: 0 0 30px rgba(255,59,59,0.8), 4px 4px 0 #7a0000; transform: none; }
+      96% { text-shadow: -3px 0 cyan, 3px 0 magenta; transform: skew(-2deg); }
+      98% { text-shadow: 3px 0 cyan, -3px 0 magenta; transform: skew(2deg); }
+    }
+
+    .game-over-emoji {
+      font-size: 4rem;
+      animation: bounceIn 0.5s cubic-bezier(0.36,0.07,0.19,0.97) both;
+    }
+
+    @keyframes bounceIn {
+      0%   { transform: scale(0); }
+      60%  { transform: scale(1.3); }
+      100% { transform: scale(1); }
+    }
+
+    .game-over-msgs {
+      background: #1a0000;
+      border: 2px solid var(--red);
+      border-radius: 12px;
+      padding: 1rem 1.5rem;
+      max-width: 400px;
+    }
+    .game-over-msgs p {
+      font-size: 0.85rem;
+      color: #ffb3b3;
+      font-weight: 700;
+      line-height: 1.7;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      position: fixed;
+      bottom: 1rem;
+      font-size: 0.7rem;
+      color: #333;
+      z-index: 10;
+      font-family: 'Press Start 2P', monospace;
+    }
+    footer span { color: #555; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 400px) {
+      .btn { padding: 0.8rem 1.2rem; font-size: 0.55rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Floating background emojis -->
+<div class="floaties" id="floaties"></div>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <h1>⏰ TIMER<br>DO GUZON</h1>
+    <p class="subtitle">Sessão de gaming oficialmente <span>regulamentada</span> 🎮</p>
+  </div>
+
+  <!-- RULE BANNER -->
+  <div class="rule-banner">
+    <span class="decree">📜 DECRETO Nº 001/2026</span>
+    <p>O Gustavo fica proibido de jogar mais de <strong>1h30min</strong> por dia,<br>sob pena de sermão duplo e jantar sem sobremesa.</p>
+    <p class="signers">Assinado por: <strong>Milena Miranda</strong> &amp; <strong>Giovanna Victorello</strong></p>
+  </div>
+
+  <!-- TIMER CARD -->
+  <div class="timer-card" id="timerCard">
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <div class="status-label" id="statusLabel">AGUARDANDO...</div>
+    <div class="time-display" id="timeDisplay"></div>
+    <div class="phase-msg" id="phaseMsg">Clica em INICIAR pra começar a contagem da humilhação 🎮</div>
+  </div>
+
+  <!-- GAME OVER SCREEN (hidden by default) -->
+  <div class="game-over" id="gameOver">
+    <div class="game-over-title">GAME OVER, GUZON!</div>
+    <div class="game-over-emoji" id="gameOverEmoji">🕹️</div>
+    <div class="game-over-msgs">
+      <p id="gameOverMsg">Sua cota diária acabou.<br>Vai lavar a louça. 🍽️</p>
+    </div>
+  </div>
+
+  <!-- BUTTONS -->
+  <div class="btn-group" id="btnGroup">
+    <button class="btn btn-start" id="mainBtn" onclick="handleMainBtn()">▶ INICIAR</button>
+    <button class="btn btn-reset" id="resetBtn" onclick="resetTimer()" style="display:none">↺ RESET</button>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+<footer>⚠️ <span>Guzon approved™</span></footer>
+
+<script>
+  // ─────────────────────────────────────────────
+  // CONFIG
+  // ─────────────────────────────────────────────
+  // ─────────────────────────────────────────────
+  // ⚙️  CONFIGURAÇÃO — altere aqui o tempo máximo
+  // ─────────────────────────────────────────────
+  const MINUTOS = 1; // ← mude só esse número!
+  const TOTAL_SECONDS = MINUTOS * 60;
+
+  const PHASES = [
+    { threshold: TOTAL_SECONDS,       msg: "Boa sorte, Guzon. Aproveita enquanto pode. 🎮" },
+    { threshold: 60 * 60,             msg: "1 hora se foi... a mãe já tá de olho 👀" },
+    { threshold: 45 * 60,             msg: "45 min restantes. Ainda dá pra fingir que é rápido 🏃" },
+    { threshold: 30 * 60,             msg: "Meia hora! A namorada foi verificar você 💅" },
+    { threshold: 20 * 60,             msg: "20 min. Já tá no horário de 'só mais uma rodada' 😅" },
+    { threshold: 10 * 60,             msg: "10 MINUTOS! Começa a fechar as abas, amigo ⚠️" },
+    { threshold: 5 * 60,              msg: "5 MINUTOS! SÃO 5 MINUTOS GUSTAVO 🚨" },
+    { threshold: 2 * 60,              msg: "2 MINUTOS!! DESLIGA ISSO AGORA 🔥" },
+    { threshold: 60,                  msg: "1 MINUTO!! ELAS JÁ ESTÃO NA PORTA!! 🚪💀" },
+    { threshold: 30,                  msg: "30 SEGUNDOS!! SALVA O JOGO!! SALVA O JOGO!! 😱" },
+    { threshold: 10,                  msg: "🔴 10... 9... 8... ACABOOOOU!!" },
+    { threshold: 0,                   msg: "" },
+  ];
+
+  const GAME_OVER_MSGS = [
+    "Sua cota diária de gaming acabou.\nVai lavar a louça. 🍽️",
+    "GAME OVER. A mãe mandou desligar. Obedece. 👩‍⚖️",
+    "1h30 se foi! Agora vai assistir novela com a família. 📺",
+    "Tempo esgotado, Guzon. A namorada precisa de atenção. 💅",
+    "Parabéns! Você sobreviveu à sua cota. Tente novamente amanhã. 🏆",
+    "O regulamento foi cumprido. Pode ir dormir agora, Cinderela. 🎃",
+  ];
+
+  const GAME_OVER_EMOJIS = ["💀", "🪦", "😭", "🙈", "👻", "🛑"];
+
+  // ─────────────────────────────────────────────
+  // STATE
+  // ─────────────────────────────────────────────
+  let secondsLeft  = TOTAL_SECONDS;
+  let intervalId   = null;
+  let state        = 'idle'; // idle | running | paused | done
+  let alarmCtx     = null;
+  let alarmNodes   = [];
+
+  // ─────────────────────────────────────────────
+  // AUDIO – alarm using Web Audio API
+  // ─────────────────────────────────────────────
+  function startAlarm() {
+    try {
+      alarmCtx = new (window.AudioContext || window.webkitAudioContext)();
+      playAlarmLoop();
+    } catch(e) { console.warn('Audio not supported', e); }
+  }
+
+  function playAlarmLoop() {
+    if (!alarmCtx) return;
+    const pattern = [880, 0, 880, 0, 1320, 0, 0, 0]; // Hz, 0 = silence
+    const duration = 0.12; // seconds per note
+    let t = alarmCtx.currentTime;
+
+    const loop = () => {
+      if (state !== 'done') return;
+      pattern.forEach(freq => {
+        if (freq > 0) {
+          const osc = alarmCtx.createOscillator();
+          const gain = alarmCtx.createGain();
+          osc.connect(gain);
+          gain.connect(alarmCtx.destination);
+          osc.frequency.value = freq;
+          osc.type = 'square';
+          gain.gain.setValueAtTime(0.3, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + duration - 0.01);
+          osc.start(t);
+          osc.stop(t + duration);
+          alarmNodes.push(osc);
+        }
+        t += duration;
+      });
+      setTimeout(loop, pattern.length * duration * 1000);
+    };
+    loop();
+  }
+
+  function stopAlarm() {
+    alarmNodes.forEach(n => { try { n.stop(); } catch(e){} });
+    alarmNodes = [];
+    if (alarmCtx) { alarmCtx.close(); alarmCtx = null; }
+  }
+
+  // ─────────────────────────────────────────────
+  // TIMER LOGIC
+  // ─────────────────────────────────────────────
+  function tick() {
+    if (secondsLeft <= 0) {
+      secondsLeft = 0;
+      clearInterval(intervalId);
+      intervalId = null;
+      state = 'done';
+      renderDone();
+      startAlarm();
+      return;
+    }
+    secondsLeft--;
+    render();
+  }
+
+  function handleMainBtn() {
+    if (state === 'idle' || state === 'paused') {
+      // Resume / Start
+      state = 'running';
+      intervalId = setInterval(tick, 1000);
+      render();
+    } else if (state === 'running') {
+      // Pause
+      clearInterval(intervalId);
+      intervalId = null;
+      state = 'paused';
+      render();
+    } else if (state === 'done') {
+      stopAlarm();
+      resetTimer();
+    }
+  }
+
+  function resetTimer() {
+    clearInterval(intervalId);
+    intervalId = null;
+    stopAlarm();
+    secondsLeft = TOTAL_SECONDS;
+    state = 'idle';
+    render();
+  }
+
+  // ─────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────
+  function formatTime(s) {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+    return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  }
+
+  function getPhaseMsg(s) {
+    for (const p of PHASES) {
+      if (s <= p.threshold) return p.msg;
+    }
+    return PHASES[0].msg;
+  }
+
+  function render() {
+    const card       = document.getElementById('timerCard');
+    const timeEl     = document.getElementById('timeDisplay');
+    const statusEl   = document.getElementById('statusLabel');
+    const phaseEl    = document.getElementById('phaseMsg');
+    const mainBtn    = document.getElementById('mainBtn');
+    const resetBtn   = document.getElementById('resetBtn');
+    const progressBar = document.getElementById('progressBar');
+    const gameOver   = document.getElementById('gameOver');
+
+    // Hide game over when not done
+    gameOver.classList.remove('visible');
+
+    // Progress bar
+    const pct = (secondsLeft / TOTAL_SECONDS) * 100;
+    progressBar.style.width = pct + '%';
+    if (pct > 50)      progressBar.style.background = 'var(--green)';
+    else if (pct > 20) progressBar.style.background = 'var(--yellow)';
+    else               progressBar.style.background = 'var(--red)';
+
+    // Card class
+    card.className = 'timer-card';
+    const isLow = secondsLeft <= 5 * 60;
+    if      (state === 'running' && isLow) card.classList.add('danger');
+    else if (state === 'running')          card.classList.add('running');
+    else if (state === 'paused')           card.classList.add('paused');
+
+    // Time
+    timeEl.textContent = formatTime(secondsLeft);
+
+    // Status
+    const labels = { idle: 'AGUARDANDO...', running: isLow ? 'CORRE, GUZON!!' : 'ROLANDO...', paused: 'PAUSADO' };
+    statusEl.textContent = labels[state] || '';
+
+    // Phase message
+    phaseEl.textContent = getPhaseMsg(secondsLeft);
+
+    // Buttons
+    if (state === 'idle') {
+      mainBtn.textContent = '▶ INICIAR';
+      mainBtn.className = 'btn btn-start';
+      resetBtn.style.display = 'none';
+    } else if (state === 'running') {
+      mainBtn.textContent = '⏸ PAUSAR';
+      mainBtn.className = 'btn btn-pause';
+      resetBtn.style.display = 'inline-block';
+    } else if (state === 'paused') {
+      mainBtn.textContent = '▶ CONTINUAR';
+      mainBtn.className = 'btn btn-start';
+      resetBtn.style.display = 'inline-block';
+    }
+  }
+
+  function renderDone() {
+    const card      = document.getElementById('timerCard');
+    const timeEl    = document.getElementById('timeDisplay');
+    const statusEl  = document.getElementById('statusLabel');
+    const phaseEl   = document.getElementById('phaseMsg');
+    const mainBtn   = document.getElementById('mainBtn');
+    const resetBtn  = document.getElementById('resetBtn');
+    const gameOver  = document.getElementById('gameOver');
+    const goMsg     = document.getElementById('gameOverMsg');
+    const goEmoji   = document.getElementById('gameOverEmoji');
+    const progress  = document.getElementById('progressBar');
+
+    card.className = 'timer-card done';
+    progress.style.width = '0%';
+    progress.style.background = 'var(--red)';
+    timeEl.textContent = '00:00';
+    statusEl.textContent = 'FIM DE JOGO!!';
+    phaseEl.textContent = '';
+
+    // Random game over message
+    const idx = Math.floor(Math.random() * GAME_OVER_MSGS.length);
+    goMsg.innerHTML = GAME_OVER_MSGS[idx].replace('\n', '<br>');
+    goEmoji.textContent = GAME_OVER_EMOJIS[idx];
+
+    gameOver.classList.add('visible');
+
+    mainBtn.textContent = '🔕 PARAR ALARME';
+    mainBtn.className = 'btn btn-stop-alarm';
+    resetBtn.style.display = 'inline-block';
+    resetBtn.textContent = '↺ NOVO DIA';
+  }
+
+  // ─────────────────────────────────────────────
+  // FLOATING BACKGROUND EMOJIS
+  // ─────────────────────────────────────────────
+  const bgEmojis = ['🎮', '🕹️', '👾', '🔫', '⚔️', '🏆', '💀', '🎯', '🃏', '🎲'];
+  const container = document.getElementById('floaties');
+  for (let i = 0; i < 20; i++) {
+    const el = document.createElement('div');
+    el.className = 'floatie';
+    el.textContent = bgEmojis[Math.floor(Math.random() * bgEmojis.length)];
+    el.style.left = Math.random() * 100 + 'vw';
+    el.style.fontSize = (1.5 + Math.random() * 2) + 'rem';
+    el.style.animationDuration = (8 + Math.random() * 15) + 's';
+    el.style.animationDelay = -(Math.random() * 20) + 's';
+    container.appendChild(el);
+  }
+
+  // ─────────────────────────────────────────────
+  // INIT
+  // ─────────────────────────────────────────────
+  render();
+</script>
+</body>
+</html>
