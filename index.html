@@ -457,15 +457,16 @@
   }
 
   function saveState() {
+    console.log('salvando')
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       date:        todayStr(),
       secondsLeft: secondsLeft,
-      // Se fechar enquanto rodando, reabre como pausado
       state:       state === 'running' ? 'paused' : state
     }));
   }
 
   function loadState() {
+    console.log('loading')
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
