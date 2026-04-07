@@ -448,6 +448,48 @@
   const GAME_OVER_EMOJIS = ["💀", "🪦", "😭", "🙈", "👻", "🛑"];
 
   // ─────────────────────────────────────────────
+  // PERSISTÊNCIA — localStorage
+  // ─────────────────────────────────────────────
+  const STORAGE_KEY = 'guzon_timer';
+
+  function todayStr() {
+    return new Date().toISOString().slice(0, 10); // ex: "2026-04-07"
+  }
+
+  function saveState() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      date:        todayStr(),
+      secondsLeft: secondsLeft,
+      // Se fechar enquanto rodando, reabre como pausado
+      state:       state === 'running' ? 'paused' : state
+    }));
+  }
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (saved.date !== todayStr()) return; // dia diferente → começa do zero
+      secondsLeft = saved.secondsLeft;
+      state       = saved.state; // 'paused' ou 'done'
+    } catch(e) { /* dado corrompido, ignora */ }
+  }
+
+  function clearState() {
+    localStorage.removeItem(STORAGE_KEY);
+  }
+
+  function isDoneToday() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return false;
+      const saved = JSON.parse(raw);
+      return saved.state === 'done' && saved.date === todayStr();
+    } catch(e) { return false; }
+  }
+
+  // ─────────────────────────────────────────────
   // STATE
   // ─────────────────────────────────────────────
   let secondsLeft  = TOTAL_SECONDS;
@@ -510,11 +552,13 @@
       clearInterval(intervalId);
       intervalId = null;
       state = 'done';
+      saveState(); // persiste o fim
       renderDone();
       startAlarm();
       return;
     }
     secondsLeft--;
+    saveState(); // persiste o tempo restante a cada segundo
     render();
   }
 
@@ -523,23 +567,28 @@
       // Resume / Start
       state = 'running';
       intervalId = setInterval(tick, 1000);
+      saveState();
       render();
     } else if (state === 'running') {
       // Pause
       clearInterval(intervalId);
       intervalId = null;
       state = 'paused';
+      saveState(); // persiste o pause
       render();
     } else if (state === 'done') {
       stopAlarm();
-      resetTimer();
+      renderDone(); // mantém a tela de game over, não reseta
     }
   }
 
   function resetTimer() {
+    // Bloqueado se o timer já foi concluído hoje
+    if (isDoneToday()) return;
     clearInterval(intervalId);
     intervalId = null;
     stopAlarm();
+    clearState();
     secondsLeft = TOTAL_SECONDS;
     state = 'idle';
     render();
@@ -646,6 +695,10 @@
     mainBtn.className = 'btn btn-stop-alarm';
     resetBtn.style.display = 'inline-block';
     resetBtn.textContent = '↺ NOVO DIA';
+    resetBtn.disabled = true;
+    resetBtn.title = 'Disponível amanhã, Guzon. 👋';
+    resetBtn.style.opacity = '0.4';
+    resetBtn.style.cursor = 'not-allowed';
   }
 
   // ─────────────────────────────────────────────
@@ -665,9 +718,14 @@
   }
 
   // ─────────────────────────────────────────────
-  // INIT
+  // INIT — restaura estado do localStorage
   // ─────────────────────────────────────────────
-  render();
+  loadState();
+  if (state === 'done') {
+    renderDone();
+  } else {
+    render();
+  }
 </script>
 </body>
 </html>
